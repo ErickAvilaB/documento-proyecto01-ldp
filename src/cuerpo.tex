@@ -9,7 +9,9 @@
 	% Nombre del autor
 	\vspace{0.5cm}
 	\large
-	\autorName
+	Avila Barba Erick Yahir\\
+	Galvan Cordoba Uriel Federico\\
+	Hernandez Coronel Angel Carlos
 
 	% Fecha
 	\vspace{0.3cm}
@@ -18,5 +20,109 @@
 \end{center}
 \vspace{0.5cm}
 
-% Contenido del documento
-\section*{Hola Mundo}
+\section{Introducción: motivación, objetivos y delimitación del proyecto}
+
+\subsection*{Motivación}
+Este proyecto nace para tender un puente claro entre la teoría de lenguajes de
+programación y su implementación real. A partir de un lenguaje pequeño tipo
+\emph{MiniLisp}, buscamos mostrar cómo las piezas formales (léxico, gramática,
+sintaxis abstracta y reglas de evaluación) se traducen en un sistema
+ejecutable. El objetivo es que el lector pueda recorrer el ciclo completo: del
+papel al programa que corre, entendiendo qué se gana (y qué se pierde) en cada
+decisión de diseño.
+
+\subsection*{Objetivos}
+\begin{itemize}
+	\item \textbf{Formalizar} el lenguaje de superficie y su \emph{core}: léxico, EBNF, Árbol de Sintaxis Abstracta (ASA) y reglas de desazúcar bien especificadas.
+	\item \textbf{Definir} la semántica operacional (paso pequeño) para las construcciones del núcleo, con nombres de reglas consistentes y ejemplos de derivación.
+	\item \textbf{Implementar} un prototipo funcional en Haskell.
+	\item \textbf{Cubrir} las extensiones indicadas en el enunciado (operadores y predicados variádicos, nuevos aritméticos, pares, listas, \texttt{let}/\texttt{let*}/\texttt{letrec}, \texttt{if}/\texttt{if0}, \texttt{cond}, lambdas y aplicación a múltiples argumentos), dejando claro qué es superficie y qué es núcleo.
+	\item \textbf{Acompañar} la implementación con casos de prueba y pequeños programas ejemplo (p.\,ej., suma de los primeros $n$, factorial, Fibonacci, \texttt{map}/\texttt{filter}).
+\end{itemize}
+
+\subsection*{Delimitación}
+Para mantener el alcance razonable y alineado con los objetivos docentes, este
+proyecto:
+\begin{itemize}
+	\item Se enfoca en \textbf{un solo paradigma} (funcional, estilo Lisp) con
+	      \textbf{semántica por sustitución/ambientes} y sin efectos laterales complejos.
+	\item Incluye \textbf{enteros}, \textbf{booleanos}, \textbf{funciones de primera
+		      clase}, \textbf{pares} y \textbf{listas}; \textbf{no} aborda estructuras
+	      avanzadas (registros, objetos) ni módulos.
+	\item Trabaja con \textbf{evaluación determinista} y especifica \textbf{puntos
+		      estrictos} cuando aplique; quedan fuera temas como \textbf{concurrencia},
+	      \textbf{paralelismo} y \textbf{laziness global} del runtime.
+	\item Define \textbf{errores léxicos/sintácticos} y \textbf{dinámicos básicos}
+	      (p.\,ej., tipos incompatibles, aplicación de no-función), pero \textbf{no}
+	      implementa un sistema de tipos estático avanzado.
+	\item Usa \textbf{Alex} y \textbf{Happy} como herramientas de \textbf{Haskell}.
+	\item Prioriza \textbf{claridad}: toda característica de superficie tiene una
+	      traducción explícita al núcleo y reglas de evaluación correspondientes.
+\end{itemize}
+
+% --- Símbolos para la gramática (categorías y no terminales)
+\newcommand{\Id}{\mathit{Id}}
+\newcommand{\Int}{\mathit{Int}}
+\newcommand{\Bool}{\mathit{Bool}}
+\newcommand{\Expr}{\mathit{Expr}}
+
+\section{Gramática base y extensiones solicitadas}
+
+\subsection*{Gramática base}
+La siguiente gramática define el lenguaje \emph{MiniLisp} de
+\textbf{superficie} antes del desazúcar. Se muestran las categorías léxicas
+mínimas y la sintaxis concreta de las construcciones base.
+
+\paragraph{Categorías léxicas.}
+\[
+	\begin{array}{rcl}
+		\Id   & ::= & \text{identificador}                                                      \\
+		\Int  & ::= & \text{entero decimal (sin ceros a la izquierda, opcionalmente con signo)} \\
+		\Bool & ::= & \#t \mid \#f
+	\end{array}
+\]
+
+\paragraph{Expresiones.}
+\[
+	\begin{array}{rcl}
+		\Expr & ::=  & \Id \mid \Int \mid \Bool                 \\
+		      & \mid & (+\ \Expr\ \Expr) \mid (-\ \Expr\ \Expr) \\
+		      & \mid & (not\ \Expr)                             \\
+		      & \mid & (let\ (\Id\ \Expr)\ \Expr)               \\
+		      & \mid & (letrec\ (\Id\ \Expr)\ \Expr)            \\
+		      & \mid & (if0\ \Expr\ \Expr\ \Expr)               \\
+		      & \mid & (lambda\ (\Id)\ \Expr)                   \\
+		      & \mid & (\Expr\ \Expr) \quad \text{(aplicación)}
+	\end{array}
+\]
+
+\paragraph{Convenciones.}
+\begin{itemize}
+	\item La aplicación $(\Expr\ \Expr)$ asocia a la \emph{izquierda}: $(((e_1\ e_2)\
+		      e_3)\ \dots)$.
+	\item Esta gramática es de \textbf{superficie}; en el \emph{núcleo} se empleará un
+	      conjunto mínimo de constructores y desazúcar sistemático.
+\end{itemize}
+
+\subsection*{Extensiones solicitadas}
+Además de la gramática base, el proyecto requiere incorporar y especificar
+formalmente las siguientes funcionalidades. Cada una deberá precisarse léxica y
+sintácticamente (EBNF), desazucar a núcleo cuando aplique y contar con reglas
+SOS (paso pequeño):
+
+\begin{enumerate}
+	\item \textbf{Operadores variádicos} (mínimo 2 argumentos) para aritmética y predicados; documentar orden de evaluación y regla de reducción (plegado).
+	\item \textbf{Aritméticos nuevos}: \texttt{*}, \texttt{/} (variádicos), \texttt{add1}, \texttt{sub1}, \texttt{sqrt}, \texttt{expt}.
+	\item \textbf{Predicados numéricos} variádicos: \texttt{=}, \texttt{<}, \texttt{>}, \texttt{>=}, \texttt{<=}, \texttt{!=}; aclarar si operan en \emph{cadena} ($x_1 \odot x_2 \odot \dots \odot x_n$) o por pares.
+	\item \textbf{Pares y proyecciones}: constructor de pareja $(e_1, e_2)$ y selectores \texttt{fst}, \texttt{snd}.
+	\item \textbf{\texttt{let} y \texttt{let*} variádicos}: múltiples asignaciones; \texttt{let} paralelo (sin dependencias cruzadas) y \texttt{let*} secuencial (permite dependencias).
+	\item \textbf{Condicional booleano} \texttt{(if e1 e2 e3)} y su relación con \texttt{if0} (decidir primitiva o azúcar).
+	\item \textbf{Listas con corchetes} y operaciones: literales \texttt{[e, ...]}, \texttt{head}, \texttt{tail}, y lista vacía \texttt{[]}; definir si son homogéneas y su traducción (p.\,ej., a \texttt{nil}/\texttt{cons} o a pares anidados).
+	\item \textbf{\texttt{cond} con \texttt{else}}: cláusulas ordenadas \texttt{[guard expr]} \dots \texttt{[else expr]} con reglas claras para el último caso.
+	\item \textbf{Lambdas variádicas} y \textbf{aplicación con múltiples argumentos}: \texttt{(lambda (x y z) e)} y \texttt{(f a b c)}; precisar semántica y desazúcar (p.\,ej., currificación) hacia el núcleo unario.
+\end{enumerate}
+
+\paragraph{Nota de diseño.}
+Cada extensión debe venir acompañada de: (i) reglas de desazúcar sobre el
+\textbf{ASA}, (ii) reglas SOS con nombres consistentes, y (iii) ejemplos de
+derivación y pruebas unitarias que cubran casos normales y de error.
