@@ -122,304 +122,185 @@ SOS (paso pequeño):
 	\item \textbf{Lambdas variádicas} y \textbf{aplicación con múltiples argumentos}: \texttt{(lambda (x y z) e)} y \texttt{(f a b c)}; precisar semántica y desazúcar (p.\,ej., currificación) hacia el núcleo unario.
 \end{enumerate}
 
-\section{Desarrollo de la Sintaxis}
+Esta sección especifica la \emph{sintaxis léxica} del lenguaje: alfabeto
+permitido, reglas de escaneo, manejo de espacios y comentarios, y definición
+formal de clases de tokens mediante expresiones regulares. La especificación
+evita cualquier carácter fuera de ASCII básico para garantizar portabilidad con
+\texttt{pdfLaTeX}.
 
-Esta sección define con precisión la \emph{sintaxis léxica} (clases de tokens,
-manejo de espacios y comentarios) y la \emph{gramática concreta} (EBNF) del
-lenguaje. A continuación se justifican todas las decisiones de diseño y se
-describe la semántica informal de las extensiones requeridas (operadores
-variádicos, nuevos operadores aritméticos, predicados, pares, asignaciones
-locales, condicionales, listas, \texttt{cond} y \texttt{lambda}).
+\section{Sintaxis léxica}
 
-\subsection{Álgebra de caracteres, espacios en blanco y comentarios}
+\subsection{Alfabeto (\texorpdfstring{$\Sigma$}{Sigma})}
 
-\paragraph{Conjunto de caracteres.} Se asume Unicode (UTF-8) para el código fuente. Para simplificar la
-especificación léxica, las clases \texttt{letra} y \texttt{dígito} se definen
-sobre ASCII básico, con extensibilidad a letras Unicode si se desea.
+Se restringe el alfabeto del lenguaje al siguiente subconjunto de ASCII:
 
-\paragraph{Espacios en blanco.} Los espacios en blanco (blancos, tabuladores, saltos de línea, retornos de
-carro) separan tokens, pero no se tokenizan. Se ignoran fuera de literales
-numéricos y simbología. Regla léxica (informal):
-\[
-	\textit{WS} ::= [\texttt{\textbackslash t}\ \texttt{\textbackslash r}\ \texttt{\textbackslash n}\ ]^+
-\]
-
-\paragraph{Comentarios.} Se soportan dos formas:
 \begin{itemize}
-	\item \emph{De línea}: del carácter \texttt{;} hasta el fin de línea.
-	\item \emph{De bloque anidados}: \texttt{\#|} \ldots \texttt{|\#}. Los bloques pueden anidarse; el analizador debe llevar un contador de anidación.
+	\item \textbf{Letras}: \texttt{A..Z}, \texttt{a..z}
+	\item \textbf{Dígitos}: \texttt{0..9}
+	\item \textbf{Espacios en blanco}: espacio ' ', tabulación horizontal (\verb|\t|), salto de línea (\verb|\n|).
+	\item \textbf{Símbolos utilizados por el lenguaje}: \texttt{( ) [ ] , ; \# | + - * / = < > \_}
 \end{itemize}
-Expresiones regulares (informales):
-\[
-	\textit{COM\_LINE} ::= \texttt{;}[^\texttt{\textbackslash n}]^*\qquad
-	\textit{COM\_BLOCK} ::= \texttt{\#|}(\ \text{cualquier cosa o bloque anidado}\ )^*\texttt{|\#}
-\]
-Los comentarios se tratan como \emph{espacios} a efectos de separación de
-tokens.
 
-\subsection{Clases de tokens (definiciones formales con ER)}
+Cualquier carácter fuera de esta lista debe producir \textbf{error léxico}.
 
-En las ER, el guion bajo se escribe \texttt{\_}, y los cuantificadores
-\texttt{+} y \texttt{*} tienen su significado habitual.
+\subsection{Espacios en blanco y comentarios}
+
+\begin{itemize}
+	\item \textbf{Espacios en blanco}: separan tokens y se ignoran fuera de literales (no hay literales de cadena en esta versión del lenguaje).
+	\item \textbf{Comentario de línea}: desde \texttt{;} hasta fin de línea.
+	\item \textbf{Comentario de bloque (no anidable)}: \texttt{\#|} \dots \texttt{|\#}. Si se abre y no se cierra, es error.
+\end{itemize}
+
+\paragraph{Patrones (informativos).}
+\begin{code}
+	LINE_COMMENT   ::= ';' [^\n]*
+	BLOCK_COMMENT  ::= '#|' (.| \n)*? '|#'       // no anidable
+	WS              ::= [ \t\r\n]+               // ignorar
+\end{code}
+
+\subsection{Clases de tokens y expresiones regulares}
+
+A continuación se definen las principales clases de tokens mediante expresiones
+regulares.
+
+\subsubsection{Booleanos}
+\begin{code}
+	BOOL ::= '#t' | '#f'
+\end{code}
+
+\subsubsection{Enteros con signo}
+\begin{code}
+	INT ::= [+\-]?[0-9]+
+\end{code}
+\textit{Nota:} el signo unario forma parte del literal sólo cuando precede inmediatamente a dígitos; un \texttt{-} aislado se tokeniza como operador.
+
+\subsubsection{Identificadores}
+\begin{code}
+	ID ::= [A-Za-z][A-Za-z0-9_]*
+\end{code}
+Se permiten sufijos numéricos (p.\,ej., \texttt{add1}). No se permite \texttt{-} interno para evitar ambigüedad con el operador \texttt{-}.
+
+\subsubsection{Palabras reservadas}
+Se reconocen como tokens propios (no como \texttt{ID}). Implementación típica:
+tras escanear un \texttt{ID}, consultar una tabla de palabras clave.
 
 \begin{center}
-	\begin{tabular}{|l|l|p{8.8cm}|}
-		\hline
-		\textbf{Categoría}     & \textbf{Token / Lexema}                                                                       & \textbf{ER / Observaciones}                                                                                                                                                     \\
-		\hline
-		Paréntesis             & \texttt{(} \ \texttt{)}                                                                       & Literales de un carácter.                                                                                                                                                       \\
-		\hline
-		Corchetes de lista     & \texttt{[} \ \texttt{]}                                                                       & Literales de un carácter.                                                                                                                                                       \\
-		\hline
-		Separadores            & \texttt{,}                                                                                    & Coma literal (para pares y elementos de listas).                                                                                                                                \\
-		\hline
-		Operadores aritméticos & \texttt{+}\ \texttt{-}\ \texttt{*}\ \texttt{/}                                                & Literales de un carácter. Variádicos (aridad $\geq 2$).                                                                                                                         \\
-		\hline
-		Predicados aritméticos & \texttt{=}\ \texttt{<}\ \texttt{>}\ \texttt{<=}\ \texttt{>=}\ \texttt{!=}                     & Tokens de dos caracteres con máximo munch.                                                                                                                                      \\
-		\hline
-		Palabras reservadas    & \texttt{lambda, let, let*, if, if0, cond, else, fst, snd, head, tail, add1, sub1, sqrt, expt} & Reconocidas como keywords y no aceptadas como identificadores.                                                                                                                  \\
-		\hline
-		Booleanos              & \texttt{\#t}\ /\ \texttt{\#f}                                                                 & Literales booleanos.                                                                                                                                                            \\
-		\hline
-		Enteros con signo      & \texttt{INT}                                                                                  & \texttt{[+-]?[0-9]+} (el signo se permite solo si el token aparece como literal; los operadores \texttt{+}/\texttt{-} se tokenizan por separado cuando actúan como operadores). \\
-		\hline
-		Identificadores        & \texttt{ID}                                                                                   & \texttt{[A-Za-z][A-Za-z0-9\_\-?*!\$\%<>/=]*} excluyendo las palabras reservadas.                                                                                                \\
-		\hline
+	\begin{tabular}{>{\ttfamily}l l}
+		\toprule
+		add1       & operación aritmética (incremento)            \\
+		sub1       & operación aritmética (decremento)            \\
+		sqrt       & raíz cuadrada                                \\
+		expt       & potencia                                     \\
+		head, tail & operaciones sobre listas                     \\
+		fst, snd   & proyecciones de pares                        \\
+		let, let*  & asignaciones locales (paralelo / secuencial) \\
+		if         & condicional booleano                         \\
+		cond, else & condicional por clausulado                   \\
+		lambda     & función anónima                              \\
+		\bottomrule
 	\end{tabular}
 \end{center}
 
-\paragraph{Máximo munch y ambigüedades.} Se aplica la política de mayor coincidencia: por ejemplo \texttt{>=} se
-reconoce como un único token de comparación, no como \texttt{>} \texttt{=}. El
-signo \texttt{-} delante de dígitos se incorpora al literal solo si aparece sin
-espacio con el número y en posición donde no pueda ser un operador; esto evita
-ambigüedades entre \texttt{-3} y \texttt{(- 3)}.
+\noindent
+\textit{Patrón ilustrativo (no vinculante):}
+\begin{code}
+	RESERVED ::=
+	'add1' | 'sub1' | 'sqrt' | 'expt' |
+	'head' | 'tail' | 'fst'  | 'snd'  |
+	'let*' | 'let'  | 'if'   | 'cond' | 'else' | 'lambda'
+\end{code}
 
-\subsection{Gramática concreta (EBNF)}
-
-Usamos una EBNF orientada a S-expressions con azúcares para pares y listas. La
-notación \texttt{X\^{+}} significa ``uno o más'', y \texttt{X\^{2+}} ``dos o
-más''.
-
-\begin{verbatim}
-Program      ::= Expr
-
-Expr         ::= Atom
-               | "(" OpVariad Expr Expr ExprListTail ")"          // operadores variadicos aritmeticos
-               | "(" PredVariad Expr Expr ExprListTail ")"        // predicados variadicos
-               | "(" UnPrim   Expr ")"                            // primitivos unarios
-               | "(" "fst" Expr ")" | "(" "snd" Expr ")"          // proyecciones
-               | "(" "let"  "(" BindList1p ")" Expr ")"           // let paralelo
-               | "(" "let*" "(" BindList1p ")" Expr ")"           // let* secuencial
-               | "(" "if"   Expr Expr Expr ")"                    // condicional
-               | "(" "if0"  Expr Expr Expr ")"                    // azucar; ver semantica
-               | "(" "cond" ClauseList1p ")"                      // cond con else
-               | "(" "lambda" "(" ParamList1p ")" Expr ")"        // funciones anonimas
-               | "(" Expr Expr ExprListTail ")"                   // aplicacion general
-               | PairExpr                                         // (e1, e2)
-               | ListExpr                                         // [e1, ..., en] | []
-
-Atom         ::= INT | BOOL | ID
-
-OpVariad     ::= "+" | "-" | "*" | "/"
-PredVariad   ::= "=" | "<" | ">" | "<=" | ">=" | "!="
-UnPrim       ::= "add1" | "sub1" | "sqrt" | "expt"                 // expt se usa aridad 2; ver semantica
-
-ExprListTail ::= /* vacio */ | Expr ExprListTail                   // Expr*
-BindList1p   ::= Bind | Bind BindListTail
-BindListTail ::= /* vacio */ | Bind BindListTail
-Bind         ::= "(" ID Expr ")"
-
-ParamList1p  ::= ID | ID ParamListTail
-ParamListTail::= /* vacio */ | ID ParamListTail
-
-ClauseList1p ::= Clause | Clause ClauseListTail
-ClauseListTail::= /* vacio */ | Clause ClauseListTail
-Clause       ::= "[" Expr Expr "]" | "[" "else" Expr "]"
-
-PairExpr     ::= "(" Expr "," Expr ")"
-ListExpr     ::= "[" ListElemsOpt "]"
-ListElemsOpt ::= /* vacio */ | Expr ListElemsTail
-ListElemsTail::= /* vacio */ | "," Expr ListElemsTail
-\end{verbatim}
-
-\paragraph{Observaciones de diseño.}
+\subsubsection{Operadores}
 \begin{itemize}
-	\item Los operadores variádicos exigen al menos dos argumentos (\texttt{Expr Expr
-		      ExprListTail}); esto fuerza aridad $\geq 2$ en \texttt{+ - * /} y en los
-	      predicados.
-	\item \texttt{expt} se usa con aridad dos (\texttt{(expt b e)}); su reconocimiento como \texttt{UnPrim} es una convención de tokenización, la aplicación concreta se hace como aplicación general.
-	\item \textbf{Azúcar de pares y listas}: \texttt{(e\_1, e\_2)} y \texttt{[e\_1, \dots, e\_n]} son notaciones no S-exp que el lexer reconoce con coma y corchetes; se desazucaran a un núcleo con pares y lista vacía (Sección \ref{subsec:listas}).
+	\item \textbf{Aritméticos}: \texttt{+}, \texttt{-}, \texttt{*}, \texttt{/}
+	\item \textbf{Comparación}: \texttt{=}, \texttt{<}, \texttt{>}, \texttt{<=}, \texttt{>=}, \texttt{!=}
 \end{itemize}
 
-\subsection{Semántica de los constructos (informal y decisiones justificadas)}
+\noindent
+\textit{Patrones recomendados (orden importa):}
+\begin{code}
+	OP2 ::= '<=' | '>=' | '!='
+	OP1 ::= [+\-*/=<>]
+\end{code}
 
-\subsubsection{Operadores variádicos y nuevos primitivos}\label{subsec:sem-arit}
-
-\paragraph{Aridad y evaluación.} Los operadores \texttt{+ - * /} y los predicados \texttt{= < > <= >= !=} son
-variádicos con aridad mínima 2. La evaluación de argumentos es por valor, de
-izquierda a derecha.
-
-\paragraph{Reducción de aritméticos.} Se adopta reducción por lista (\emph{fold-left}) con los siguientes esquemas,
-todos sobre enteros:
-\[
-	\begin{aligned}
-		(+\, a_1\,\dots\,a_n) & := (((a_1 + a_2) + a_3) + \dots + a_n)                     \\
-		(*\, a_1\,\dots\,a_n) & := (((a_1 \times a_2) \times a_3) \times \dots \times a_n) \\
-		(-\, a_1\,\dots\,a_n) & := (((a_1 - a_2) - a_3) - \dots - a_n)                     \\
-		(/\, a_1\,\dots\,a_n) & := (((a_1 \div a_2) \div a_3) \div \dots \div a_n)
-	\end{aligned}
-\]
-La división \(\div\) es entera por truncamiento hacia cero. Error si algún
-divisor es cero.
-
-\paragraph{Primitivos.}
-\[
-	\begin{aligned}
-		\texttt{add1}(n)   & := n + 1, \qquad
-		\texttt{sub1}(n) := n - 1,                                                \\
-		\texttt{sqrt}(n)   & := \left\lfloor \sqrt{n}\right\rfloor \ \ (n \ge 0), \\
-		\texttt{expt}(b,e) & := b^e \ \ (e \ge 0\ \text{entero}).
-	\end{aligned}
-\]
-Errores: \texttt{sqrt} con argumento negativo; \texttt{expt} con exponente
-negativo.
-
-\subsubsection{Predicados variádicos sobre enteros}
-
-\paragraph{Interpretación en cadena.} Para \texttt{<, >, <=, >=} se adopta la semántica de cadena:
-\[
-	(<\ a_1\ \dots\ a_n) \equiv (a_1<a_2) \wedge (a_2<a_3)\wedge \dots \wedge (a_{n-1}<a_n)
-\]
-y análogamente para \texttt{>}, \texttt{<=}, \texttt{>=}.
-\paragraph{Igualdad y desigualdad.}
-\[
-	(=\ a_1\ \dots\ a_n) \equiv \bigwedge_{i=1}^{n-1}(a_i = a_{i+1}),\quad
-	(!=\ a_1\ \dots\ a_n) \equiv \bigwedge_{1\le i<j\le n}(a_i \ne a_j).
-\]
-Estas operaciones solo aceptan enteros; mezclar tipos es error.
-
-\subsubsection{Pares ordenados y proyecciones}\label{subsec:pares}
-
-\paragraph{Formación y proyección.} La notación \texttt{(e\_1, e\_2)} construye el par \(\langle v_1, v_2\rangle\)
-tras evaluar los componentes.
-\[
-	\texttt{(fst p)} \Rightarrow v_1,\qquad \texttt{(snd p)} \Rightarrow v_2,
-\]
-con error si \texttt{p} no es un par.
-
-\subsubsection{Asignaciones locales: \texttt{let} y \texttt{let*}}
-
-\paragraph{Ámbito.} El alcance es léxico.
-\paragraph{\texttt{let} (paralelo).} \texttt{(let ((x e\_x) (y e\_y) \dots) body)} evalúa \texttt{e\_x}, \texttt{e\_y}, \dots en el ambiente exterior y liga simultáneamente. Dependencias entre ligaduras son ilegales (error).
-\paragraph{\texttt{let*} (secuencial).} \texttt{(let* ((x e\_x) (y e\_y) \dots) body)} introduce cada ligadura sobre el ambiente extendido por las anteriores; permite dependencias válidas.
-
-\subsubsection{Condicional booleano: \texttt{if} y \texttt{if0}}
-
-\paragraph{\texttt{if}.} \texttt{(if e\_1 e\_2 e\_3)} evalúa \texttt{e\_1}; si es \texttt{\#t} evalúa \texttt{e\_2}, si es \texttt{\#f} evalúa \texttt{e\_3}. Solo \texttt{\#t} y \texttt{\#f} son booleanos.
-\paragraph{\texttt{if0} como azúcar.} Se define como azúcar sobre \texttt{if}:
-\[
-	\texttt{(if0 e a b)} \equiv \texttt{(if (= e 0) a b)}.
-\]
-
-\subsubsection{Listas, azúcares de corchetes y operaciones básicas}\label{subsec:listas}
-
-\paragraph{Homogeneidad.} Las listas son heterogéneas.
-\paragraph{Azúcar de listas.} La notación \texttt{[e\_1, \dots, e\_n]} se traduce a pares anidados terminados
-en la lista vacía \texttt{[]}:
-\[
-	[] \equiv \texttt{nil},\quad
-	[e_1] \equiv (e_1, []),\quad
-	[e_1, e_2, \dots, e_n] \equiv (e_1, [e_2, \dots, e_n]).
-\]
-\paragraph{Operaciones.}
-\[
-	\texttt{(head L)}:\ L=(h,t)\Rightarrow h,\ \ \texttt{(tail L)}:\ L=(h,t)\Rightarrow t,
-\]
-error si \texttt{L} es \texttt{[]}.
-
-\subsubsection{Condicional por clausulado: \texttt{cond} con \texttt{else}}
-
-\paragraph{Reglas.} \texttt{(cond [g\_1 e\_1] \dots [g\_k e\_k] [else e\_d])}. Se evalúan guardas en orden y se elige la primera verdadera. \texttt{else} debe ser la última; si falta y ninguna guarda es verdadera, es error.
-
-\subsubsection{Funciones anónimas y aplicaciones}
-
-\paragraph{\texttt{lambda}.} \texttt{(lambda (x\_1 \dots x\_n) Expr)} define una función con aridad fija \(n\ge 1\). Parámetros distintos (error si repetidos).
-\paragraph{Aplicación.} \texttt{(f a\_1 \dots a\_n)} evalúa \texttt{f} y los argumentos por valor (izquierda a derecha) y aplica con aridad exacta.
-
-\subsection{Desambiguaciones, errores y diagnósticos}
-
+\subsubsection{Delimitadores y separadores}
 \begin{itemize}
-	\item \textbf{Tipos}: Aritméticos y predicados solo sobre enteros; otros tipos dan error de tipo.
-	\item \textbf{División por cero}: error en tiempo de ejecución.
-	\item \textbf{Raíz cuadrada}: error si el argumento es negativo.
-	\item \textbf{Comparaciones variádicas}: aridad $<2$ es error (la EBNF ya lo previene).
-	\item \textbf{\texttt{let} vs \texttt{let*}}: reportar dependencias ilegales en \texttt{let}.
-	\item \textbf{Pares/listas}: \texttt{head}/\texttt{tail} sobre \texttt{[]} es error.
-	\item \textbf{else en \texttt{cond}}: solo permitido como última cláusula.
+	\item \textbf{Paréntesis}: \texttt{(} \; \texttt{)}
+	\item \textbf{Corchetes}: \texttt{[} \; \texttt{]}
+	\item \textbf{Coma}: \texttt{,}
 \end{itemize}
 
-\subsection{Resumen de tokens reservados}
+\noindent
+\textit{Patrones:}
+\begin{code}
+	LPAREN  ::= '('
+	RPAREN  ::= ')'
+	LBRACK  ::= '['
+	RBRACK  ::= ']'
+	COMMA   ::= ','
+\end{code}
 
-\begin{center}
-	\small
-	\texttt{( ) [ ] , + - * / = < > <= >= != lambda let let* if if0 cond else fst snd head tail add1 sub1 sqrt expt \#t \#f}
-\end{center}
+\subsection{Lista canónica de reglas de escaneo (orden de aplicación)}
 
-\subsection{Ejemplos ilustrativos}
+\begin{code}
+	// 1) Ignorar blancos y comentarios
+	WS              ::= [ \t\r\n]+                     => skip
+	LINE_COMMENT    ::= ';' [^\n]*                     => skip
+	BLOCK_COMMENT   ::= '#|' (.| \n)*? '|#'            => skip
 
-\begin{verbatim}
-(+ 1 2 3 4)              ; 10
-(* 3 4 5)                ; 60
-(/ 64 4 2)               ; 8
-(= 4 4 4)                ; #t
-(< 2 5 5)                ; #f   (cadena estricta)
-(!= 1 2 3 1)             ; #f
+	// 2) Operadores multicarácter
+	OP2             ::= '<=' | '>=' | '!='
 
-(fst (1, #t))            ; 1
-(snd (3, 5))             ; 5
+	// 3) Palabras reservadas específicas antes que ID (ej. let*)
+	RESERVED        ::= 'add1'|'sub1'|'sqrt'|'expt'|'head'|'tail'|
+	'fst'|'snd'|'let*'|'let'|'if'|'cond'|'else'|'lambda'
 
-(let ((x 3) (y (+ x 1))) (+ x y))   ; ERROR (let paralelo)
-(let* ((x 3) (y (+ x 1))) (+ x y))  ; 7
+	// 4) Booleanos y literales
+	BOOL            ::= '#t' | '#f'
+	INT             ::= [+\-]?[0-9]+
 
-(if #t 1 2)               ; 1
-(if0 0 42 0)              ; 42  == (if (= 0 0) 42 0)
+	// 5) Identificadores
+	ID              ::= [A-Za-z][A-Za-z0-9_]*           // aceptar sólo si no es RESERVED
 
-[1, 2, 3, 4]              ; azucar de lista
-(head [1, 2, 3])          ; 1
-(tail [3, 5, 6])          ; [5, 6]
-[]                        ; lista vacia
+	// 6) Operadores de un carácter y delimitadores
+	OP1             ::= [+\-*/=<>]
+	LPAREN          ::= '('
+	RPAREN          ::= ')'
+	LBRACK          ::= '['
+	RBRACK          ::= ']'
+	COMMA           ::= ','
+\end{code}
 
-((lambda (x y z) (+ x y z)) 1 2 3)  ; 6
-\end{verbatim}
+\subsection{Ejemplos de tokenización}
 
-\subsection{Notas de implementación (guía para el analizador léxico y sintáctico)}
+\paragraph{Operadores variádicos.}
+\begin{code}
+	(+ 1 2 3 4)
+	// TOKENS: LPAREN, OP1(+), INT(1), INT(2), INT(3), INT(4), RPAREN
+\end{code}
 
-\paragraph{Lexer.}
-\begin{enumerate}
-	\item Aplicar \emph{máximo munch}; reconocer primero dobles símbolos (\texttt{<=, >=,
-		      !=}).
-	\item Tratar \texttt{\#| \dots |\#} con contador de anidación.
-	\item Diferenciar un literal \texttt{-?\,[0-9]+} de una aplicación \texttt{(- \dots)}
-	      por contexto: un signo adosado a dígitos sin espacios en un lugar donde se
-	      espera \texttt{Atom} forma un \texttt{INT}; en otro caso, \texttt{-} es token
-	      operador.
-\end{enumerate}
+\paragraph{Comparaciones multicarácter.}
+\begin{code}
+	(<= 2 5 5)
+	// TOKENS: LPAREN, OP2(<=), INT(2), INT(5), INT(5), RPAREN
+\end{code}
 
-\paragraph{Parser.}
-\begin{itemize}
-	\item Para variádicos, usar una producción que consuma \(\ge 2\) expresiones (como en
-	      la EBNF).
-	\item Azúcar: traducir \texttt{(e1, e2)} a un constructor \texttt{Pair(e1, e2)} del
-	      AST; traducir \texttt{[e\_1,\dots,e\_n]} a anidamiento \texttt{Pair(e\_1,
-		      Pair(e\_2, \dots Pair(e\_n, Nil)\dots))}.
-	\item \texttt{cond}: validar que \texttt{else} sólo aparece (a lo sumo) en la última cláusula.
-\end{itemize}
+\paragraph{Asignaciones locales y palabras reservadas.}
+\begin{code}
+	(let* ((x 3) (y (+ x 1))) (+ x y))
+	// TOKENS: RESERVED(let*), LPAREN, LPAREN, ID(x), INT(3), RPAREN, ...
+\end{code}
 
-\subsection{Garantías de diseño y alternativas consideradas}
+\paragraph{Listas con corchetes y coma.}
+\begin{code}
+	(head [1, 2, 3, 4])
+	// TOKENS: RESERVED(head), LBRACK, INT(1), COMMA, INT(2), COMMA, INT(3), COMMA, INT(4), RBRACK
+\end{code}
 
-\begin{itemize}
-	\item \textbf{Comparaciones variádicas}: se prefirió \emph{cadena} frente a reducción acumulativa para alinear con lenguajes de la familia Lisp/Scheme y mejorar legibilidad matemática.
-	\item \textbf{Enteros puros}: mantener el dominio en enteros simplifica la especificación y evita introducir reglas de coerción; \texttt{sqrt} con piso es un compromiso razonable y explícito.
-	\item \textbf{Listas heterogéneas}: coherente con el uso de pares como núcleo y con la tradición Lisp; permite listas mixtas sin penalización.
-	\item \textbf{Orden de evaluación}: fijo y de izquierda a derecha para predecibilidad y facilidad de pruebas.
-\end{itemize}
+\paragraph{Comentarios.}
+\begin{code}
+	; esto es un comentario de línea
+	#| comentario
+	de bloque |# (+ 1 2)
+\end{code}
+

@@ -17,13 +17,25 @@
 \onehalfspacing % Entrelineado 1.5
 
 % Estilo de la pagina
-\fancypagestyle{miEstilo}{
-    \fancyhf{} % Resetea estilos
-    \fancyhead[L]{\autorAPA} % Nombre de la tarea
-    \fancyhead[R]{\tareaName} % Nombre de la tarea
-    \renewcommand{\headrulewidth}{0.01cm} % Linea arriba
-    \renewcommand{\footrulewidth}{0.01cm} % Linea abajo
-    \fancyfoot[C]{\thepage} % Número de página
+\fancypagestyle{miEstilo}{% ====== Paquetes extra necesarios para la sección de Sintaxis léxica ======
+\usepackage[T1]{fontenc}     % Salida en T1 (guiones, tt, etc.)
+\usepackage{lmodern}         % Fuente compatible con T1
+\usepackage{microtype}       % Mejora de espaciado
+\usepackage{enumitem}        % Listas compactas (usado en la sección)
+\usepackage{booktabs}        % Tablas bonitas (tabla de palabras reservadas)
+\usepackage{array}           % Columnas personalizadas en la tabla
+\usepackage{fancyvrb}        % Entorno verbatim 'code' para regex y ejemplos
+\usepackage{hyperref}        % Enlaces y \texorpdfstring en títulos
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue}
+
+% Entorno verbatim 'code' que usa la sección
+\DefineVerbatimEnvironment{code}{Verbatim}{fontsize=\small,commandchars=\\\{\}}
+\fancyhf{} % Resetea estilos
+\fancyhead[L]{\autorAPA} % Nombre de la tarea
+\fancyhead[R]{\tareaName} % Nombre de la tarea
+\renewcommand{\headrulewidth}{0.01cm} % Linea arriba
+\renewcommand{\footrulewidth}{0.01cm} % Linea abajo
+\fancyfoot[C]{\thepage} % Número de página
 }
 
 \fancypagestyle{portada}{
@@ -34,3 +46,17 @@
 }
 
 \pagestyle{miEstilo} % Establece el estilo de la pagina
+
+% ====== Paquetes extra necesarios para la sección de Sintaxis léxica ======
+\usepackage[T1]{fontenc}     % Salida en T1 (guiones, tt, etc.)
+\usepackage{lmodern}         % Fuente compatible con T1
+\usepackage{microtype}       % Mejora de espaciado
+\usepackage{enumitem}        % Listas compactas (usado en la sección)
+\usepackage{booktabs}        % Tablas bonitas (tabla de palabras reservadas)
+\usepackage{array}           % Columnas personalizadas en la tabla
+\usepackage{fancyvrb}        % Entorno verbatim 'code' para regex y ejemplos
+\usepackage{hyperref}        % Enlaces y \texorpdfstring en títulos
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue}
+
+% Entorno verbatim 'code' que usa la sección
+\DefineVerbatimEnvironment{code}{Verbatim}{fontsize=\small}
