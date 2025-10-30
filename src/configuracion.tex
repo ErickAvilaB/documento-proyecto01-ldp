@@ -60,3 +60,14 @@
 
 % Entorno verbatim 'code' que usa la sección
 \DefineVerbatimEnvironment{code}{Verbatim}{fontsize=\small}
+
+% --- Para bloques EBNF en monoespaciado ---
+\usepackage{listings}
+\lstdefinestyle{ebnf}{
+    basicstyle=\ttfamily\small,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    frame=single,
+    xleftmargin=1em
+}
