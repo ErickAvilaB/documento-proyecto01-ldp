@@ -122,12 +122,6 @@ SOS (paso pequeño):
 	\item \textbf{Lambdas variádicas} y \textbf{aplicación con múltiples argumentos}: \texttt{(lambda (x y z) e)} y \texttt{(f a b c)}; precisar semántica y desazúcar (p.\,ej., currificación) hacia el núcleo unario.
 \end{enumerate}
 
-Esta sección especifica la \emph{sintaxis léxica} del lenguaje: alfabeto
-permitido, reglas de escaneo, manejo de espacios y comentarios, y definición
-formal de clases de tokens mediante expresiones regulares. La especificación
-evita cualquier carácter fuera de ASCII básico para garantizar portabilidad con
-\texttt{pdfLaTeX}.
-
 \section{Sintaxis léxica}
 
 \subsection{Alfabeto (\texorpdfstring{$\Sigma$}{Sigma})}
@@ -151,7 +145,6 @@ Cualquier carácter fuera de esta lista debe producir \textbf{error léxico}.
 	\item \textbf{Comentario de bloque (no anidable)}: \texttt{\#|} \dots \texttt{|\#}. Si se abre y no se cierra, es error.
 \end{itemize}
 
-\paragraph{Patrones (informativos).}
 \begin{code}
 	LINE_COMMENT   ::= ';' [^\n]*
 	BLOCK_COMMENT  ::= '#|' (.| \n)*? '|#'       // no anidable
@@ -202,7 +195,6 @@ tras escanear un \texttt{ID}, consultar una tabla de palabras clave.
 \end{center}
 
 \noindent
-\textit{Patrón ilustrativo (no vinculante):}
 \begin{code}
 	RESERVED ::=
 	'add1' | 'sub1' | 'sqrt' | 'expt' |
@@ -217,7 +209,6 @@ tras escanear un \texttt{ID}, consultar una tabla de palabras clave.
 \end{itemize}
 
 \noindent
-\textit{Patrones recomendados (orden importa):}
 \begin{code}
 	OP2 ::= '<=' | '>=' | '!='
 	OP1 ::= [+\-*/=<>]
@@ -231,7 +222,6 @@ tras escanear un \texttt{ID}, consultar una tabla de palabras clave.
 \end{itemize}
 
 \noindent
-\textit{Patrones:}
 \begin{code}
 	LPAREN  ::= '('
 	RPAREN  ::= ')'
@@ -396,7 +386,7 @@ explícitamente donde corresponde.
 	\item \texttt{cond}: debe incluir una cláusula final \texttt{[else e]}; si aparece \texttt{else}, es la última.
 \end{itemize}
 
-\subsection*{Convenciones semánticas (resumen)}
+\subsection*{Convenciones semánticas}
 \begin{itemize}
 	\item Evaluación estricta de izquierda a derecha.
 	\item Operadores variádicos aritméticos (\texttt{+ - * /}): plegado izquierdo;
