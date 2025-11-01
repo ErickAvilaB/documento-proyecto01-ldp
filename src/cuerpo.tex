@@ -122,6 +122,7 @@ SOS (paso pequeño):
 	\item \textbf{Lambdas variádicas} y \textbf{aplicación con múltiples argumentos}: \texttt{(lambda (x y z) e)} y \texttt{(f a b c)}; precisar semántica y desazúcar (p.\,ej., currificación) hacia el núcleo unario.
 \end{enumerate}
 
+
 \section{Sintaxis léxica}
 
 \subsection{Alfabeto (\texorpdfstring{$\Sigma$}{Sigma})}
@@ -400,3 +401,130 @@ explícitamente donde corresponde.
 	      \texttt{nil/cons} o pares encadenados; por ejemplo, \texttt{[e1, e2, e3]}
 	      $\Rightarrow$ \texttt{(cons e1 (cons e2 (cons e3 nil)))}.
 \end{itemize}
+=======
+\paragraph{Nota de diseño.}
+Cada extensión debe venir acompañada de: (i) reglas de desazúcar sobre el
+\textbf{ASA}, (ii) reglas SOS con nombres consistentes, y (iii) ejemplos de
+derivación y pruebas unitarias que cubran casos normales y de error.
+
+\section{Sintaxis abstracta (ASA)}
+
+\subsection{Justificación y principios de diseño}
+
+La \emph{Sintaxis Abstracta} (ASA) es la forma estructural del programa: organiza las expresiones por sus subexpresiones y deja fuera detalles de la escritura (paréntesis, comas, corchetes). Cada constructor se forma a partir de las ASAs de sus componentes y, cuando la EBNF usa repetición {…}, en la ASA eso se refleja como una lista (argumentos de operadores y comparadores, parámetros de \texttt{lambda}, argumentos de aplicación, ligaduras de \texttt{let}/\texttt{let*}, cláusulas de \texttt{cond}, elementos de listas). Se respetan las aridades mínimas de la gramática (por ejemplo, operadores y comparadores con  n\(=>\)2, \texttt{lambda} con al menos un parámetro, aplicación con al menos un argumento, \texttt{let}/\texttt{let*} con al menos una ligadura) y las ligaduras quedan explícitas: los parámetros de \texttt{lambda} y las variables de \texttt{let}/\texttt{let*} ligan en el cuerpo. La ASA no fija el modo de evaluación; esas decisiones se precisan después en la semántica y, cuando corresponda, en el tratamiento del azúcar y su desazucarización.
+
+\subsection{Reglas de formación}
+
+% (Opcional pero útil en el preámbulo)
+% \providecommand{\ASA}{\mathit{ASA}} % Si prefieres \ASA en vez de \mathrm{ASA}
+
+\paragraph{Átomos.}
+\[
+\frac{n\in\mathbb{Z}}{\mathrm{Num}(n)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{b\in\{\#t,\#f\}}{\mathrm{Bool}(b)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{x\in \mathrm{Id}}{\mathrm{Var}(x)\ \in\ \mathrm{ASA}}
+\]
+
+\paragraph{Aritméticos variádicos \texorpdfstring{$(+\ -\ *\ /)$} con $n\ge 2$.}
+\[
+\frac{a_1\in\mathrm{ASA}\ \ \cdots\ \ a_n\in\mathrm{ASA}\ \ \ n\ge 2}
+     {\mathrm{Add}_{\texttt{}}\big([a_1,\dots,a_n]\big)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{a_1\in\mathrm{ASA}\ \ \cdots\ \ a_n\in\mathrm{ASA}\ \ \ n\ge 2}
+     {\mathrm{Sub}_{\texttt{}}\big([a_1,\dots,a_n]\big)\ \in\ \mathrm{ASA}}
+\]
+\[
+\frac{a_1\in\mathrm{ASA}\ \ \cdots\ \ a_n\in\mathrm{ASA}\ \ \ n\ge 2}
+     {\mathrm{Mul}{\texttt{}}\big([a_1,\dots,a_n]\big)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{a_1\in\mathrm{ASA}\ \ \cdots\ \ a_n\in\mathrm{ASA}\ \ \ n\ge 2}
+     {\mathrm{Div}_{\texttt{}}\big([a_1,\dots,a_n]\big)\ \in\ \mathrm{ASA}}
+\]
+
+\paragraph{Unarios y potencia.}
+\[
+\frac{e\in\mathrm{ASA}}{\mathrm{Add1}(e)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{e\in\mathrm{ASA}}{\mathrm{Sub1}(e)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{e\in\mathrm{ASA}}{\mathrm{Sqrt}(e)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{\mathrm{base}\in\mathrm{ASA}\ \ \ \mathrm{exp}\in\mathrm{ASA}}
+     {\mathrm{Expt}(\mathrm{base},\mathrm{exp})\ \in\ \mathrm{ASA}}
+\]
+
+\paragraph{Predicados variádicos \texorpdfstring{$(=\ <\ >\ \le\ \ge\ $}{!=)} con $n\ge 2$.}
+
+\[
+\frac{a_1\in\mathrm{ASA}\ \ \cdots\ \ a_n\in\mathrm{ASA}\ \ \ n\ge 2}
+     {\mathrm{Igual}\big([a_1,\dots,a_n]\big)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{a_1\in\mathrm{ASA}\ \ \cdots\ \ a_n\in\mathrm{ASA}\ \ \ n\ge 2}
+     {\mathrm{Menorq}\big([a_1,\dots,a_n]\big)\ \in\ \mathrm{ASA}}
+\]
+\[
+\frac{a_1\in\mathrm{ASA}\ \ \cdots\ \ a_n\in\mathrm{ASA}\ \ \ n\ge 2}
+     {\mathrm{Mayorq}\big([a_1,\dots,a_n]\big)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{a_1\in\mathrm{ASA}\ \ \cdots\ \ a_n\in\mathrm{ASA}\ \ \ n\ge 2}
+     {\mathrm{MenorIgu}\big([a_1,\dots,a_n]\big)\ \in\ \mathrm{ASA}}
+\]
+\[
+\frac{a_1\in\mathrm{ASA}\ \ \cdots\ \ a_n\in\mathrm{ASA}\ \ \ n\ge 2}
+     {\mathrm{MayorIgu}\big([a_1,\dots,a_n]\big)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{a_1\in\mathrm{ASA}\ \ \cdots\ \ a_n\in\mathrm{ASA}\ \ \ n\ge 2}
+     {\mathrm{NoIgual}\big([a_1,\dots,a_n]\big)\ \in\ \mathrm{ASA}}
+\]
+
+\paragraph{Pares y proyecciones.}
+\[
+\frac{e_1\in\mathrm{ASA}\ \ \ e_2\in\mathrm{ASA}}
+     {\mathrm{Par}(e_1,e_2)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{e\in\mathrm{ASA}}{\mathrm{Fst}(e)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{e\in\mathrm{ASA}}{\mathrm{Snd}(e)\ \in\ \mathrm{ASA}}
+\]
+
+\paragraph{Listas y operaciones.}
+\[
+\frac{e_1\in\mathrm{ASA}\ \ \cdots\ \ e_n\in\mathrm{ASA}\ \ \ n\ge 0}
+     {\mathrm{Lista}([e_1,\dots,e_n])\ \in\ \mathrm{ASA}}
+\qquad
+\frac{e\in\mathrm{ASA}}{\mathrm{Head}(e)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{e\in\mathrm{ASA}}{\mathrm{Tail}(e)\ \in\ \mathrm{ASA}}
+\]
+
+\paragraph{Condicionales.}
+\[
+\frac{t\in\mathrm{ASA}\ \ \ \mathrm{th}\in\mathrm{ASA}\ \ \ \mathrm{el}\in\mathrm{ASA}}
+     {\mathrm{If}(t,\mathrm{th},\mathrm{el})\ \in\ \mathrm{ASA}}
+\]
+\[
+\frac{g_1\in\mathrm{ASA}\ \ e_1\in\mathrm{ASA}\ \ \cdots\ \ g_r\in\mathrm{ASA}\ \ e_r\in\mathrm{ASA}\ \ \ \mathrm{el}\in\mathrm{ASA}\ \ \ r\ge 1}
+     {\mathrm{Cond}\big([(g_1,e_1),\dots,(g_r,e_r)],\ \mathrm{el}\big)\ \in\ \mathrm{ASA}}
+\]
+
+\paragraph{Asignaciones locales.}
+\[
+\frac{x_1\in \mathrm{Id},\ e_1\in\mathrm{ASA}\ \ \cdots\ \ x_k\in \mathrm{Id},\ e_k\in\mathrm{ASA}\ \ \ \mathrm{body}\in\mathrm{ASA}\ \ \ k\ge 1}
+     {\mathrm{Let}\big([(x_1,e_1),\dots,(x_k,e_k)],\ \mathrm{body}\big)\ \in\ \mathrm{ASA}}
+\]
+\[
+\frac{x_1\in \mathrm{Id},\ e_1\in\mathrm{ASA}\ \ \cdots\ \ x_k\in \mathrm{Id},\ e_k\in\mathrm{ASA}\ \ \ \mathrm{body}\in\mathrm{ASA}\ \ \ k\ge 1}
+     {\mathrm{\texttt{let*}}\big([(x_1,e_1),\dots,(x_k,e_k)],\ \mathrm{body}\big)\ \in\ \mathrm{ASA}}
+\]
+
+\paragraph{Funciones anónimas y aplicación.}
+\[
+\frac{x_1\in \mathrm{Id}\ \ \cdots\ \ x_n\in \mathrm{Id}\ \ \ \mathrm{c}\in\mathrm{ASA}\ \ \ n\ge 1}
+     {\mathrm{Lambda}\big([x_1,\dots,x_n],\ \mathrm{c}\big)\ \in\ \mathrm{ASA}}
+\qquad
+\frac{f\in\mathrm{ASA}\ \ a_1\in\mathrm{ASA}\ \ \cdots\ \ a_m\in\mathrm{ASA}\ \ \ m\ge 1}
+     {\mathrm{App}(f,\ [a_1,\dots,a_m])\ \in\ \mathrm{ASA}}
+\]
+
