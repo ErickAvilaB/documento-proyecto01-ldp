@@ -530,3 +530,298 @@ su desazucarización.
 	{\mathrm{App}(f,\ [a_1,\dots,a_m])\ \in\ \mathrm{ASA}}
 \]
 
+\section{Desazucarización}
+
+\subsection{Núcleo (core) propuesto}
+
+\paragraph{Objetivo.}
+Un núcleo pequeño, determinista y estricto (CBV izquierda$\to$derecha), con
+\emph{lambda} y aplicación \emph{unarias}, condicional booleano, pares/listas,
+primitivas binarias para aritmética/comparación, y un operador de punto fijo.
+
+\paragraph{Constructores del núcleo (ASA-Core).}
+\[
+	\begin{array}{rcl}
+		\text{Atómicos}     & : & \Num(n),\ \Bool(b),\ \Var(x)                                                          \\[2pt]
+		\text{Funciones}    & : & \Lam(x,\, e)                                                                          \\[2pt]
+		\text{Aplicación}   & : & \App(e_1,\, e_2)                                                                      \\[2pt]
+		\text{Condicional}  & : & \If(c,\, t,\, e)                                                                      \\[2pt]
+		\text{Pares/Listas} & : & \Pair(e_1, e_2),\ \Fst(e),\ \Snd(e),\ \Nil                                            \\[2pt]
+		\text{Num. binario} & : &
+		\PrimAdd(e_1,e_2),\ \PrimSub(e_1,e_2),\ \PrimMul(e_1,e_2),\ \PrimDiv(e_1,e_2),                                  \\
+		                    &   & \PrimExpt(e_1,e_2),\ \PrimSqrt(e)\ \text{(unaria)}                                    \\[2pt]
+		\text{Cmp. binario} & : &
+		\PrimEq(e_1,e_2),\ \PrimLt(e_1,e_2),\ \PrimGt(e_1,e_2),\ \PrimLe(e_1,e_2),\ \PrimGe(e_1,e_2),\ \PrimNe(e_1,e_2) \\[2pt]
+		\text{Fijo}         & : & \Fix(e) \quad (\text{punto fijo})
+	\end{array}
+\]
+
+\paragraph{Convenciones SOS (alto nivel).}
+Evaluación \emph{call-by-value}, izquierda$\to$derecha, con reglas estándar:
+\[
+	\begin{array}{l}
+		\App(\Lam(x,b),\, v)\ \to\ b[x:=v] \qquad
+		\If(\Bool(\#t),\, t,\, e)\to t \quad
+		\If(\Bool(\#f),\, t,\, e)\to e              \\[2pt]
+		\Fix(\Lam(x,b))\ \to\ b[x:=\Fix(\Lam(x,b))] \\[2pt]
+		\text{Primitivas reducen sobre valores apropiados (enteros/booleanos/pares).}
+	\end{array}
+\]
+Los errores dinámicos (tipo, división por cero, \texttt{head} de \texttt{Nil},
+etc.) quedan definidos en la especificación de ejecución.
+
+\subsection{Notación de traducción}
+Denotamos por $\llbracket e \rrbracket$ la transformación de
+\textbf{superficie} a \textbf{núcleo} sobre ASA.
+
+\subsection{Reglas básicas}
+\[
+	\begin{array}{rclcrcl}
+		\llbracket n \rrbracket   & = & \Num(n)    & \qquad &
+		\llbracket \#t \rrbracket & = & \Bool(\#t)            \\[2pt]
+		\llbracket \#f \rrbracket & = & \Bool(\#f) &        &
+		\llbracket x \rrbracket   & = & \Var(x)
+	\end{array}
+\]
+
+\subsection{Lambdas variádicas y aplicación multi-argumento (currificación)}
+
+\paragraph{Lambda.}
+\[
+	\llbracket (\lambda\ (x_1\ \dots\ x_n)\ e) \rrbracket
+	\ =\ \Lam(x_1,\ \Lam(x_2,\ \dots\ \Lam(x_n,\ \llbracket e\rrbracket)\dots))
+	\quad (n\ge 1)
+\]
+
+\paragraph{Aplicación.}
+\[
+	\llbracket (f\ a_1\ \dots\ a_m) \rrbracket
+	\ =\ \App(\dots \App(\App(\llbracket f\rrbracket,\ \llbracket a_1\rrbracket),\ \llbracket a_2\rrbracket)\dots,\ \llbracket a_m\rrbracket)
+	\quad (m\ge 1)
+\]
+
+\subsection{\texttt{let}, \texttt{let*} y \texttt{letrec}}
+
+\paragraph{\texttt{let} paralelo.}
+\[
+	\llbracket (\texttt{let}\ ((x_1\ e_1)\dots(x_n\ e_n))\ b) \rrbracket
+	\ =\ \llbracket ((\lambda (x_1\dots x_n)\ b)\ e_1\ \dots\ e_n)\rrbracket
+	\quad (n\ge 1)
+\]
+
+\paragraph{\texttt{let*} secuencial.}
+\[
+	\begin{array}{rcl}
+		\llbracket (\texttt{let*}\ ((x\ e)\ \vec{bs})\ b) \rrbracket
+		 & = & \llbracket (\texttt{let}\ ((x\ e))\ (\texttt{let*}\ (\vec{bs})\ b)) \rrbracket \\[4pt]
+		\llbracket (\texttt{let*}\ ((x\ e))\ b) \rrbracket
+		 & = & \llbracket (\texttt{let}\ ((x\ e))\ b) \rrbracket
+	\end{array}
+\]
+
+\paragraph{\texttt{letrec} unario.}
+\[
+	\llbracket (\texttt{letrec}\ (x\ e)\ b) \rrbracket
+	\ =\ \llbracket (\texttt{let}\ ((x\ \Fix(\lambda(x)\ e)))\ b) \rrbracket
+\]
+
+\subsection{Condicionales: \texttt{if}, \texttt{if0}, \texttt{cond}}
+
+\paragraph{\texttt{if} (primitiva).}
+\[
+	\llbracket (\texttt{if}\ c\ t\ e) \rrbracket\ =\ \If(\llbracket c\rrbracket,\ \llbracket t\rrbracket,\ \llbracket e\rrbracket)
+\]
+
+\paragraph{\texttt{if0} (azúcar).}
+\[
+	\llbracket (\texttt{if0}\ e\ t\ f) \rrbracket\ =\ \If(\PrimEq(\llbracket e\rrbracket,\ \Num(0)),\ \llbracket t\rrbracket,\ \llbracket f\rrbracket)
+\]
+
+\paragraph{\texttt{cond} con \texttt{else}.}
+\[
+	\llbracket (\texttt{cond}\ [g_1\ e_1]\ \dots\ [g_r\ e_r]\ [\texttt{else}\ e_0]) \rrbracket
+	= \If(\llbracket g_1\rrbracket,\ \llbracket e_1\rrbracket,\ \dots\If(\llbracket g_r\rrbracket,\ \llbracket e_r\rrbracket,\ \llbracket e_0\rrbracket)\dots)
+	\quad (r\ge 1)
+\]
+
+\subsection{Aritmética variádica y unarios}
+
+\paragraph{Plegado izquierdo (n$\ge$2).}
+Sea
+\[
+	\foldL(\oplus,\ [a_1,\dots,a_n])\ =\ \oplus(\dots \oplus(\oplus(a_1,a_2),a_3)\dots,a_n).
+\]
+Entonces
+\[
+	\begin{array}{rcl}
+		\llbracket (+\ e_1\ \dots\ e_n) \rrbracket & = & \foldL(\PrimAdd,\ [\llbracket e_1\rrbracket,\dots,\llbracket e_n\rrbracket]) \\
+		\llbracket (-\ e_1\ \dots\ e_n) \rrbracket & = & \foldL(\PrimSub,\ [\llbracket e_1\rrbracket,\dots,\llbracket e_n\rrbracket]) \\
+		\llbracket (*\ e_1\ \dots\ e_n) \rrbracket & = & \foldL(\PrimMul,\ [\llbracket e_1\rrbracket,\dots,\llbracket e_n\rrbracket]) \\
+		\llbracket (/\ e_1\ \dots\ e_n) \rrbracket & = & \foldL(\PrimDiv,\ [\llbracket e_1\rrbracket,\dots,\llbracket e_n\rrbracket])
+	\end{array}
+	\quad (n\ge 2)
+\]
+
+\paragraph{Unarios y potencia.}
+\[
+	\begin{array}{rclcrcl}
+		\llbracket (\texttt{add1}\ e) \rrbracket    & =      & \PrimAdd(\llbracket e\rrbracket,\ \Num(1))
+		                                            & \qquad &
+		\llbracket (\texttt{sub1}\ e) \rrbracket    & =      & \PrimSub(\llbracket e\rrbracket,\ \Num(1))                 \\[2pt]
+		\llbracket (\texttt{sqrt}\ e) \rrbracket    & =      & \PrimSqrt(\llbracket e\rrbracket)
+		                                            &        &
+		\llbracket (\texttt{expt}\ b\ e) \rrbracket & =      & \PrimExpt(\llbracket b\rrbracket,\ \llbracket e\rrbracket)
+	\end{array}
+\]
+
+\subsection{Comparadores variádicos}
+
+\paragraph{Esquema de cadena con cortocircuito.}
+Definimos, por notación metalingüística,
+\[
+	\chain(\odot,\ [a_1,\dots,a_n])\ =\
+	\If(\odot(a_1,a_2),\ \chain(\odot,\ [a_2,\dots,a_n]),\ \Bool(\#f)),
+	\quad
+	\chain(\odot,\ [a,b])=\odot(a,b).
+\]
+
+\[
+	\begin{array}{rcl}
+		\llbracket (= \ e_1 \dots e_n) \rrbracket   & = & \chain(\PrimEq,\ [\llbracket e_1\rrbracket,\dots,\llbracket e_n\rrbracket]) \\
+		\llbracket (< \ e_1 \dots e_n) \rrbracket   & = & \chain(\PrimLt,\ [\llbracket e_1\rrbracket,\dots,\llbracket e_n\rrbracket]) \\
+		\llbracket (> \ e_1 \dots e_n) \rrbracket   & = & \chain(\PrimGt,\ [\llbracket e_1\rrbracket,\dots,\llbracket e_n\rrbracket]) \\
+		\llbracket (\le\ e_1 \dots e_n) \rrbracket  & = & \chain(\PrimLe,\ [\llbracket e_1\rrbracket,\dots,\llbracket e_n\rrbracket]) \\
+		\llbracket (\ge\ e_1 \dots e_n) \rrbracket  & = & \chain(\PrimGe,\ [\llbracket e_1\rrbracket,\dots,\llbracket e_n\rrbracket]) \\
+		\llbracket (\neq\ e_1 \dots e_n) \rrbracket & = & \chain(\PrimNe,\ [\llbracket e_1\rrbracket,\dots,\llbracket e_n\rrbracket])
+	\end{array}
+	\quad (n\ge 2)
+\]
+
+\subsection{Pares y listas}
+
+\paragraph{Pares y proyecciones.}
+\[
+	\llbracket (e_1, e_2) \rrbracket=\Pair(\llbracket e_1\rrbracket,\ \llbracket e_2\rrbracket),\quad
+	\llbracket (\texttt{fst}\ e) \rrbracket=\Fst(\llbracket e\rrbracket),\quad
+	\llbracket (\texttt{snd}\ e) \rrbracket=\Snd(\llbracket e\rrbracket).
+\]
+
+\paragraph{Listas con corchetes y operaciones.}
+\[
+	\text{\texttt{[]}}\ \Rightarrow\ \Nil,\qquad
+	\text{\texttt{[}}\,e_1,\dots,e_n\text{\texttt{]}}\ \Rightarrow\
+	\Pair(\llbracket e_1\rrbracket,\ \dots\ \Pair(\llbracket e_n\rrbracket,\ \Nil)\dots).
+\]
+\[
+	\llbracket (\texttt{head}\ e) \rrbracket\ =\ \Fst(\llbracket e\rrbracket),\qquad
+	\llbracket (\texttt{tail}\ e) \rrbracket\ =\ \Snd(\llbracket e\rrbracket).
+\]
+
+\subsection{Ejemplos de desazucarización}
+
+\paragraph{Aplicación curriﬁcada.}
+\[
+	\begin{aligned}
+		\llbracket ((\lambda (x\,y\,z)\ (+\ x\ y\ z))\ 1\ 2\ 3) \rrbracket
+		 & =\ \App(\App(\App(\Lam(x,\Lam(y,\Lam(z,\,\llbracket (+\ x\ y\ z)\rrbracket))),\ \Num(1)),\ \Num(2)),\ \Num(3)) \\
+		\llbracket (+\ x\ y\ z) \rrbracket
+		 & =\ \PrimAdd(\PrimAdd(\llbracket x\rrbracket,\ \llbracket y\rrbracket),\ \llbracket z\rrbracket)
+	\end{aligned}
+\]
+
+\paragraph{\texttt{let} paralelo vs \texttt{let*} secuencial.}
+\[
+	\begin{aligned}
+		\llbracket (\texttt{let}\ ((x\ 1)(y\ (+\ x\ 1)))\ (+\ x\ y)) \rrbracket
+		 & =\ \llbracket ((\lambda (x\ y)\ (+\ x\ y))\ 1\ (+\ x\ 1)) \rrbracket                            \\[4pt]
+		\llbracket (\texttt{let*}\ ((x\ 1)(y\ (+\ x\ 1)))\ (+\ x\ y)) \rrbracket
+		 & =\ \llbracket (\texttt{let}\ ((x\ 1))\ (\texttt{let*}\ ((y\ (+\ x\ 1)))\ (+\ x\ y))) \rrbracket
+	\end{aligned}
+\]
+
+\paragraph{\texttt{cond} en \texttt{if} anidados.}
+\[
+	\llbracket (\texttt{cond}\ [g_1\ e_1]\ [g_2\ e_2]\ [\texttt{else}\ e_0]) \rrbracket
+	=\If(\llbracket g_1\rrbracket,\ \llbracket e_1\rrbracket,\ \If(\llbracket g_2\rrbracket,\ \llbracket e_2\rrbracket,\ \llbracket e_0\rrbracket)).
+\]
+
+\paragraph{Comparación encadenada (ejemplo).}
+\[
+	\llbracket (\ge\ a\ b\ c\ d) \rrbracket
+	=\If(\PrimGe(\llbracket a\rrbracket,\llbracket b\rrbracket),\
+	\If(\PrimGe(\llbracket b\rrbracket,\llbracket c\rrbracket),\
+		\PrimGe(\llbracket c\rrbracket,\llbracket d\rrbracket),\
+		\Bool(\#f)),\
+	\Bool(\#f)).
+\]
+
+\subsection{Esbozo de contextos de evaluación (para SOS-CBV)}
+\[
+	\begin{array}{rcl}
+		E & ::= & [\ ] \mid \App(E, e) \mid \App(v, E) \mid \If(E, e, e)       \\
+		  &     & \mid\ \Prim(\_, E, e) \mid \Prim(\_, v, E) \mid \PrimSqrt(E) \\
+		  &     & \mid\ \Pair(E, e) \mid \Pair(v, E) \mid \Fst(E) \mid \Snd(E)
+	\end{array}
+\]
+donde $v$ son valores: $\Num(n)$, $\Bool(b)$, $\Lam(x,e)$, $\Nil$,
+$\Pair(v_1,v_2)$.
+
+\subsection{Resumen (``cheat-sheet'')}
+
+\paragraph{Lambdas y apps.}
+\[
+	\begin{array}{l}
+		(\lambda (x_1\dots x_n)\ e)\ \Rightarrow\ \Lam(x_1,\dots\Lam(x_n,\llbracket e\rrbracket)\dots) \\
+		(f\ a_1\dots a_m)\ \Rightarrow\ \text{aplicación unaria izquierda-asociativa}
+	\end{array}
+\]
+
+\paragraph{\texttt{let}/\texttt{let*}/\texttt{letrec}.}
+\[
+	\begin{array}{l}
+		(\texttt{let}\ ((x_1 e_1)\dots(x_n e_n))\ b)\ \Rightarrow\ ((\lambda (x_1\dots x_n)\ b)\ e_1\dots e_n) \\
+		(\texttt{let*}\ ((x\ e)\ \vec{bs})\ b)\ \Rightarrow\ (\texttt{let}\ ((x\ e))\ (\texttt{let*}\ (\vec{bs})\ b)),\
+		(\texttt{let*}\ ((x\ e))\ b)\ \Rightarrow\ (\texttt{let}\ ((x\ e))\ b)                                 \\
+		(\texttt{letrec}\ (x\ e)\ b)\ \Rightarrow\ (\texttt{let}\ ((x\ \Fix(\lambda(x)\ e)))\ b)
+	\end{array}
+\]
+
+\paragraph{Condicionales.}
+\[
+	\begin{array}{l}
+		(\texttt{if}\ c\ t\ e)\ \Rightarrow\ \If(\llbracket c\rrbracket,\llbracket t\rrbracket,\llbracket e\rrbracket)                   \\
+		(\texttt{if0}\ e\ t\ f)\ \Rightarrow\ \If(\PrimEq(\llbracket e\rrbracket,\Num(0)),\llbracket t\rrbracket,\llbracket f\rrbracket) \\
+		(\texttt{cond}\ [g_i e_i]\,\dots\,[\texttt{else}\ e_0])\ \Rightarrow\ \text{\texttt{if} anidados}
+	\end{array}
+\]
+
+\paragraph{Aritmética y unarios.}
+\[
+	\begin{array}{l}
+		(+|{-}|*|/\, e_1\dots e_n)\ \Rightarrow\ \foldL(\PrimAdd|\PrimSub|\PrimMul|\PrimDiv,\ [\llbracket e_i\rrbracket]) \\
+		(\texttt{add1}\ e)\Rightarrow\PrimAdd(\llbracket e\rrbracket,\Num(1)),\quad
+		(\texttt{sub1}\ e)\Rightarrow\PrimSub(\llbracket e\rrbracket,\Num(1))                                             \\
+		(\texttt{sqrt}\ e)\Rightarrow\PrimSqrt(\llbracket e\rrbracket),\quad
+		(\texttt{expt}\ b\ e)\Rightarrow\PrimExpt(\llbracket b\rrbracket,\llbracket e\rrbracket)
+	\end{array}
+\]
+
+\paragraph{Comparadores en cadena.}
+\[
+	(<op>\ e_1\dots e_n)\ \Rightarrow\ \chain(\Prim<op>,\ [\llbracket e_i\rrbracket])\quad(n\ge 2)
+\]
+
+\paragraph{Pares y listas.}
+\[
+	\begin{array}{l}
+		\mathopen{(}e_1, e_2\mathclose{)}\ \Rightarrow\ \Pair(\llbracket e_1\rrbracket,\llbracket e_2\rrbracket),\quad
+		\texttt{fst}/\texttt{snd}\ \Rightarrow\ \Fst/\Snd
+		\\[4pt]
+		\mathopen{[}\mathclose{]}\ \Rightarrow\ \Nil,\quad
+		\mathopen{[}\ e_1,\dots,e_n\ \mathclose{]}\ \Rightarrow\
+				\Pair(\llbracket e_1\rrbracket,\ \dots\ \Pair(\llbracket e_n\rrbracket,\ \Nil)\dots)
+		\\[4pt]
+		\llbracket (\texttt{head}\ e) \rrbracket\ \Rightarrow\ \Fst(\llbracket e\rrbracket),\quad
+		\llbracket (\texttt{tail}\ e) \rrbracket\ \Rightarrow\ \Snd(\llbracket e\rrbracket)
+	\end{array}
+\]
